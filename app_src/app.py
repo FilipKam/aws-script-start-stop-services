@@ -124,9 +124,9 @@ class AWSManager:
                 logger.error(f"An error occurred while stopping ECS tasks: {e}")
 
 
-def lambda_handler(event, context):
+def handler(event, context):
     """
-    Main function that is executed when the Lambda is triggered
+    Main function that is executed when the script is triggered
     """
     # create an instance of the AWSManager class
     manager = AWSManager()
@@ -149,8 +149,6 @@ def lambda_handler(event, context):
 
 
 if __name__ == "__main__":
-    # Example how to start script: python3 script.py -a start
-    # Example how to start script: python3 script.py -a stop
     logging.info("Script started from local machine")
     import argparse
 
@@ -159,4 +157,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     event = {"action": args.action}
 
-    lambda_handler(event, None)
+    handler(event, None)

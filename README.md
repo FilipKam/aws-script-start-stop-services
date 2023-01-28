@@ -21,8 +21,8 @@ Script running in lambda functions for starting/stopping EC2, ECS and RDS resour
 
 ### start resources
 
-```python3 script.py -a start```
+```python3 app.py -a start```
 
 ### stop resources
 
-```python3 script.py -a stop```
+```python3 app.py -a stop```
