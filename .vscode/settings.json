@@ -1,0 +1,10 @@
+{
+    "python.linting.pylintEnabled": false,
+    "python.linting.enabled": true,
+    "python.formatting.provider": "black",
+    "python.formatting.autopep8Args": [
+        "--max-line-length=120"
+    ],
+    "python.analysis.typeCheckingMode": "basic",
+    
+}
