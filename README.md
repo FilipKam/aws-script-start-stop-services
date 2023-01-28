@@ -1,2 +1,2 @@
-# aws-script-stop-services
+# aws-script-start-stop-services
 Script running in lambda functions for starting/stopping EC2, ECS and RDS resources.
