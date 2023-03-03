@@ -1,8 +1,6 @@
 import boto3
 import logging
-import json
 from botocore.exceptions import ClientError
-
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -93,28 +91,31 @@ class AWSManager:
         except Exception as e:
             logger.error(e)
 
-    def start_ecs_tasks(self):
-        # start all ECS tasks
+    def ecs_change_desired_tasks(self, desired_count):
+        # edit number of desired ECS tasks
         try:
-            response = self.ecs_client.list_tasks()
-            for task_arn in response["taskArns"]:
-                self.ecs_client.start_task(taskArn=task_arn)
-                logger.info(f"Started ECS task {task_arn}")
-        except ClientError as e:
-            if e.response["Error"]["Code"] == "ClusterNotFoundException":
-                logger.error("No ECS clusters present, nothing to stop")
-            elif e.response["Error"]["Code"] == "AccessDeniedException":
-                logger.error("Access denied to ECS, check your credentials")
-            else:
-                logger.error(f"An error occurred while stopping ECS tasks: {e}")
-
-    def stop_ecs_tasks(self):
-        # stop all ECS tasks
-        try:
-            response = self.ecs_client.list_tasks()
-            for task_arn in response["taskArns"]:
-                self.ecs_client.stop_task(taskArn=task_arn)
-                logger.info(f"Stopped ECS task {task_arn}")
+            clusters = self.ecs_client.list_clusters()
+            cluster_arns = clusters["clusterArns"]
+            for cluster_arn in cluster_arns:
+                cluster_info = self.ecs_client.describe_clusters(
+                    clusters=[cluster_arn]
+                )["clusters"][0]
+                if cluster_info["status"] == "ACTIVE":
+                    cluster_name = cluster_info["clusterName"]
+                    logger.info(
+                        f"Updating number of service tasks to {desired_count} in {cluster_name}"
+                    )
+                    services = self.ecs_client.list_services(cluster=cluster_name)
+                    services_arns = services["serviceArns"]
+                    for service_arn in services_arns:
+                        self.ecs_client.update_service(
+                            cluster=cluster_name,
+                            service=service_arn,
+                            desiredCount=desired_count,
+                        )
+                        logger.info(
+                            f"Desired number of tasks changed to {desired_count} for {service_arn}"
+                        )
         except ClientError as e:
             if e.response["Error"]["Code"] == "ClusterNotFoundException":
                 logger.error("No ECS clusters present, nothing to stop")
@@ -132,18 +133,16 @@ def handler(event, context):
     manager = AWSManager()
     # get the action from the event
     action = event["action"]
-
     if action == "start":
         logger.info("Starting all AWS resources")
         # manager.start_ec2_instances()
         manager.start_rds_db()
-        manager.start_ecs_tasks()
+        manager.ecs_change_desired_tasks(desired_count=1)
         return {"statusCode": 200, "body": "All resources started"}
-
     elif action == "stop":
         logger.info("Stopping all AWS resources")
         manager.stop_ec2_instances()
-        manager.stop_ecs_tasks()
+        manager.ecs_change_desired_tasks(desired_count=0)
         manager.stop_rds_db()
         return {"statusCode": 200, "body": "All resources stopped"}
 
@@ -156,5 +155,4 @@ if __name__ == "__main__":
     parser.add_argument("-a", "--action", help="stop or start", type=str)
     args = parser.parse_args()
     event = {"action": args.action}
-
     handler(event, None)
