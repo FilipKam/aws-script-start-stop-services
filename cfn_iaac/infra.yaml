@@ -1,11 +1,12 @@
 AWSTemplateFormatVersion: "2010-09-09"
+Description: "Infrastructure as Code for AWS Lambda function to automatically start and stop AWS services."
 Parameters:
   FunctionName:
     Type: String
-    Default: "auto-start-stop-services"
+    Default: "rbcz-auto-start-stop-services"
   FunctionIamRoleName:
     Type: String
-    Default: "auto-start-stop-services"
+    Default: "rbcz-auto-start-stop-services"
   S3Bucket:
     Type: String
   S3Key:
@@ -52,10 +53,10 @@ Resources:
             Statement:
               - Effect: Allow
                 Action:
-                  - "ecs:StartTask"
-                  - "ecs:StopTask"
-                  - "ecs:ListTasks"
                   - "ecs:ListClusters"
+                  - "ecs:ListServices"
+                  - "ecs:DescribeClusters"
+                  - "ecs:UpdateService"
                 Resource: "*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
