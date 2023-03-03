@@ -101,3 +101,17 @@ Resources:
         - Id: !Ref FunctionName
           Arn: !GetAtt LambdaFunction.Arn
           Input: '{"action":"stop"}'
+  FunctionInvokePermissionStart:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LambdaFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBridgeRuleStart.Arn
+  FunctionInvokePermissionStop:
+    Type: "AWS::Lambda::Permission"
+    Properties:
+      Action: "lambda:InvokeFunction"
+      FunctionName: !Ref LambdaFunction
+      Principal: events.amazonaws.com
+      SourceArn: !GetAtt EventBridgeRuleStop.Arn
