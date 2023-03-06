@@ -1,22 +1,16 @@
 AWSTemplateFormatVersion: "2010-09-09"
 Description: "Infrastructure as Code for AWS Lambda function to automatically start and stop AWS services."
 Parameters:
-  FunctionName:
-    Type: String
-    Default: "rbcz-auto-start-stop-services"
-  FunctionIamRoleName:
-    Type: String
-    Default: "rbcz-auto-start-stop-services"
   S3Bucket:
     Type: String
   S3Key:
     Type: String
     Default: "app.zip"
 Resources:
-  IAMRole:
+  IAMRoleLambda:
     Type: "AWS::IAM::Role"
     Properties:
-      RoleName: !Ref FunctionIamRoleName
+      RoleName: "rbcz-auto-start-stop-services-lambda-role"
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -60,58 +54,86 @@ Resources:
                 Resource: "*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Path: /
+      Path: /      
 
   LambdaFunction:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Ref FunctionName
+      FunctionName: "rbcz-auto-start-stop-services-lambda"
       Description: "Automatically start and stop AWS services. Trigger using EventBridge cron expression."
       Runtime: "python3.9"
       Code:
         S3Bucket: !Ref S3Bucket
         S3Key: !Ref S3Key
       Handler: "app.handler"
-      Role: !GetAtt IAMRole.Arn
+      Role: !GetAtt IAMRoleLambda.Arn
       Timeout: 30
-  EventBridgeRuleStart:
-    Type: "AWS::Events::Rule"
+  
+  IAMRoleScheduler:
+    Type: "AWS::IAM::Role"
     Properties:
+      RoleName: "rbcz-auto-start-stop-services-scheduler-role"
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+      Policies:
+        - PolicyName: "scheduler-permissions-lambda"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "lambda:InvokeFunction"
+                Resource: !GetAtt LambdaFunction.Arn
+
+  EventBridgeSchedulerStart:
+    Type: "AWS::Scheduler::Schedule"
+    Properties:
+      Name: "rbcz-auto-start-services-scheduler"
+      Description: "Start BAAPI AWS services - RDS and ECS"
       ScheduleExpression: "cron(0 8 ? * MON,TUE,WED,THU,FRI *)"
-      EventPattern:
-        source:
-          - "aws.events"
-        detail-type:
-          - "Scheduled Event"
-      Targets:
-        - Id: !Ref FunctionName
-          Arn: !GetAtt LambdaFunction.Arn
-          Input: '{"action":"start"}'
-  EventBridgeRuleStop:
-    Type: "AWS::Events::Rule"
-    Properties:
-      ScheduleExpression: "cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
+      ScheduleExpressionTimezone: "Europe/Prague"
       State: "ENABLED"
-      EventPattern:
-        source:
-          - "aws.events"
-        detail-type:
-          - "Scheduled Event"
-      Targets:
-        - Id: !Ref FunctionName
-          Arn: !GetAtt LambdaFunction.Arn
-          Input: '{"action":"stop"}'
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt LambdaFunction.Arn
+        Input: '{"action":"start"}'
+        RoleArn: !GetAtt IAMRoleScheduler.Arn
+  
+  EventBridgeSchedulerStop:
+    Type: "AWS::Scheduler::Schedule"
+    Properties:
+      Name: "rbcz-auto-stop-services-scheduler"
+      Description: "Stop BAAPI AWS services - RDS, EC2 and ECS"
+      ScheduleExpression: "cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
+      ScheduleExpressionTimezone: "Europe/Prague"
+      State: "ENABLED"
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt LambdaFunction.Arn
+        Input: '{"action":"stop"}'
+        RoleArn: !GetAtt IAMRoleScheduler.Arn
+
   FunctionInvokePermissionStart:
     Type: "AWS::Lambda::Permission"
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !Ref LambdaFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt EventBridgeRuleStart.Arn
+      Principal: scheduler.amazonaws.com
+      SourceArn: !GetAtt EventBridgeSchedulerStart.Arn
+  
   FunctionInvokePermissionStop:
     Type: "AWS::Lambda::Permission"
     Properties:
       Action: "lambda:InvokeFunction"
       FunctionName: !Ref LambdaFunction
-      Principal: events.amazonaws.com
-      SourceArn: !GetAtt EventBridgeRuleStop.Arn
+      Principal: scheduler.amazonaws.com
+      SourceArn: !GetAtt EventBridgeSchedulerStop.Arn
