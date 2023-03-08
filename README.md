@@ -11,6 +11,26 @@ Script running in lambda functions for starting/stopping EC2, ECS and RDS resour
   - RDS
 - For testing lambda event input JSON is defined like:
 
+### Start RDS instances
+
+```
+{
+  "action": "start",
+  "resource": "rds"
+}
+```
+
+### Start ECS tasks
+
+```
+{
+  "action": "start",
+  "resource": "ecs"
+}
+```
+
+### Stop all resources
+
 ```
 {
   "action": "stop"
@@ -21,7 +41,9 @@ Script running in lambda functions for starting/stopping EC2, ECS and RDS resour
 
 ### start resources
 
-```python3 app.py -a start```
+```python3 app.py -a start -r rds```
+
+```python3 app.py -a start -r ecs```
 
 ### stop resources
 

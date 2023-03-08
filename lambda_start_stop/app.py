@@ -133,12 +133,18 @@ def handler(event, context):
     manager = AWSManager()
     # get the action from the event
     action = event["action"]
+    
     if action == "start":
-        logger.info("Starting all AWS resources")
-        # manager.start_ec2_instances()
-        manager.start_rds_db()
-        manager.ecs_change_desired_tasks(desired_count=1)
-        return {"statusCode": 200, "body": "All resources started"}
+        aws_resource = event["resource"]
+        if aws_resource == "rds":
+            logger.info("Starting RDS instances")
+            manager.start_rds_db()
+            return {"statusCode": 200, "body": "All RDS instances started"}
+        if aws_resource == "ecs":
+            logger.info("Starting ECS tasks")
+            manager.ecs_change_desired_tasks(desired_count=1)
+            return {"statusCode": 200, "body": "Desired number of ECS tasks set to 1"}
+        
     elif action == "stop":
         logger.info("Stopping all AWS resources")
         manager.stop_ec2_instances()
@@ -153,6 +159,7 @@ if __name__ == "__main__":
 
     parser = argparse.ArgumentParser()
     parser.add_argument("-a", "--action", help="stop or start", type=str)
+    parser.add_argument("-r", "--resource", help="rds or ecs", type=str)
     args = parser.parse_args()
-    event = {"action": args.action}
+    event = {"action": args.action, "resource": args.resource}
     handler(event, None)
