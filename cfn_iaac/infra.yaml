@@ -1,181 +1,77 @@
 AWSTemplateFormatVersion: "2010-09-09"
-Description: "Infrastructure as Code for AWS Lambda function to automatically start and stop AWS services."
+
+Description: "Main template to deploy all resources to automatically start and stop AWS services."
+
+Metadata:
+  Author: FilipKamenar
+  AWS::CloudFormation::Interface:
+    ParameterGroups:
+      -
+        Label:
+          default: "Application basic information"
+        Parameters:
+          - NamePrefix
+          - Environment
+      -
+        Label:
+          default: "Lambda functions nested stack"
+        Parameters:
+          - S3Bucket
+          - S3KeyLambdaManageServicesSourceCode
+          - S3KeyLambdaCheckRdsSourceCode
+          - LambdaFunctionsTemplateUrl
+      -
+        Label:
+          default: "Step functions nested stack"
+        Parameters:
+          - StepFunctionsTemplateUrl
+
 Parameters:
+  NamePrefix:
+    Type: String
+    Description: "Prefix for all resources."
+  Environment:
+    Type: String
+    Description: Name of the environment.
+    AllowedValues:
+      - dev
+      - tfx1
+      - preprod
+      - prod
   S3Bucket:
     Type: String
-  S3KeyLambdaFuncStartStop:
+    Description: "S3 bucket where the source code of Lambda functions is stored."
+  S3KeyLambdaManageServicesSourceCode:
     Type: String
-    Description: "S3 key for Lambda function to start and stop AWS services."
-  S3KeyLambdaFuncCheckRds:
+    Description: "S3 key for Lambda function source code to start and stop AWS services. Example: manage_services_lambda.zip"
+  S3KeyLambdaCheckRdsSourceCode:
     Type: String
-    Description: "S3 key for Lambda function to check RDS status."
-Resources:
-  IAMRoleLambdaFuncStartStop:
-    Type: "AWS::IAM::Role"
-    Properties:
-      RoleName: "rbcz-auto-start-stop-services-lambda-role"
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action:
-              - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-      Policies:
-        - PolicyName: "lambda-permissions-ec2"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "ec2:StartInstances"
-                  - "ec2:StopInstances"
-                  - "ec2:DescribeInstances"
-                Resource: "*"
-        - PolicyName: "lambda-permissions-rds"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "rds:StartDBInstance"
-                  - "rds:StopDBInstance"
-                  - "rds:DescribeDBInstances"
-                Resource: "*"
-        - PolicyName: "lambda-permissions-ecs"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "ecs:ListClusters"
-                  - "ecs:ListServices"
-                  - "ecs:DescribeClusters"
-                  - "ecs:UpdateService"
-                Resource: "*"
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Path: /      
+    Description: "S3 key for Lambda function source code to check RDS status. Example: check_state_lambda.zip"
+  LambdaFunctionsTemplateUrl:
+    Type: String
+    Description: Object URL of CFN template lambda_functions.yaml in S3 CodeSourceBucket.
+  StepFunctionsTemplateUrl:
+    Type: String
+    Description: Object URL of CFN template step_functions.yaml in S3 CodeSourceBucket.
 
-  LambdaFuncStartStop:
-    Type: "AWS::Lambda::Function"
+Resources: 
+  LambdaFunctions:
+    Type: "AWS::CloudFormation::Stack"
     Properties:
-      FunctionName: "rbcz-auto-start-stop-services-lambda"
-      Description: "Automatically start and stop AWS services. Trigger using EventBridge cron expression."
-      Runtime: "python3.9"
-      Code:
+      TemplateURL: !Ref LambdaFunctionsTemplateUrl
+      Parameters:
+        NamePrefix: !Ref NamePrefix
+        Environment: !Ref Environment
         S3Bucket: !Ref S3Bucket
-        S3Key: !Ref S3KeyLambdaFuncStartStop
-      Handler: "app.handler"
-      Role: !GetAtt IAMRoleLambdaFuncStartStop.Arn
-      Timeout: 30
+        S3KeyLambdaManageServicesSourceCode: !Ref S3KeyLambdaManageServicesSourceCode
+        S3KeyLambdaCheckRdsSourceCode: !Ref S3KeyLambdaCheckRdsSourceCode
 
-  IAMRoleLambdaFuncCheckRds:
-    Type: "AWS::IAM::Role"
+  StepFunctions:
+    Type: "AWS::CloudFormation::Stack"
     Properties:
-      RoleName: "rbcz-check-rds-status-lambda-role"
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action:
-              - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-                - lambda.amazonaws.com
-      Policies:
-        - PolicyName: "lambda-permissions-rds"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "rds:DescribeDBInstances"
-                Resource: "*"
-      ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Path: /  
-
-  LambdaFuncCheckRds:
-    Type: "AWS::Lambda::Function"
-    Properties:
-      FunctionName: "rbcz-check-rds-status-lambda"
-      Description: "Check RDS status."
-      Runtime: "python3.9"
-      Code:
-        S3Bucket: !Ref S3Bucket
-        S3Key: !Ref S3KeyLambdaFuncCheckRds
-      Handler: "app.handler"
-      Role: !GetAtt IAMRoleLambdaFuncCheckRds.Arn
-      Timeout: 30
-  
-  IAMRoleScheduler:
-    Type: "AWS::IAM::Role"
-    Properties:
-      RoleName: "rbcz-auto-start-stop-services-scheduler-role"
-      AssumeRolePolicyDocument:
-        Version: 2012-10-17
-        Statement:
-          - Action:
-              - sts:AssumeRole
-            Effect: Allow
-            Principal:
-              Service:
-                - scheduler.amazonaws.com
-      Policies:
-        - PolicyName: "scheduler-permissions-lambda"
-          PolicyDocument:
-            Version: 2012-10-17
-            Statement:
-              - Effect: Allow
-                Action:
-                  - "lambda:InvokeFunction"
-                Resource: !GetAtt LambdaFunction.Arn
-
-  EventBridgeSchedulerStart:
-    Type: "AWS::Scheduler::Schedule"
-    Properties:
-      Name: "rbcz-auto-start-services-scheduler"
-      Description: "Start BAAPI AWS services - RDS and ECS"
-      ScheduleExpression: "cron(0 8 ? * MON,TUE,WED,THU,FRI *)"
-      ScheduleExpressionTimezone: "Europe/Prague"
-      State: "ENABLED"
-      FlexibleTimeWindow:
-        Mode: "OFF"
-      Target:
-        Arn: !GetAtt LambdaFunction.Arn
-        Input: '{"action":"start"}'
-        RoleArn: !GetAtt IAMRoleScheduler.Arn
-  
-  EventBridgeSchedulerStop:
-    Type: "AWS::Scheduler::Schedule"
-    Properties:
-      Name: "rbcz-auto-stop-services-scheduler"
-      Description: "Stop BAAPI AWS services - RDS, EC2 and ECS"
-      ScheduleExpression: "cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
-      ScheduleExpressionTimezone: "Europe/Prague"
-      State: "ENABLED"
-      FlexibleTimeWindow:
-        Mode: "OFF"
-      Target:
-        Arn: !GetAtt LambdaFunction.Arn
-        Input: '{"action":"stop"}'
-        RoleArn: !GetAtt IAMRoleScheduler.Arn
-
-  FunctionInvokePermissionStart:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      Action: "lambda:InvokeFunction"
-      FunctionName: !Ref LambdaFunction
-      Principal: scheduler.amazonaws.com
-      SourceArn: !GetAtt EventBridgeSchedulerStart.Arn
-  
-  FunctionInvokePermissionStop:
-    Type: "AWS::Lambda::Permission"
-    Properties:
-      Action: "lambda:InvokeFunction"
-      FunctionName: !Ref LambdaFunction
-      Principal: scheduler.amazonaws.com
-      SourceArn: !GetAtt EventBridgeSchedulerStop.Arn
+      TemplateURL: !Ref StepFunctionsTemplateUrl
+      Parameters:
+        NamePrefix: !Ref NamePrefix
+        Environment: !Ref Environment
+        LambdaManageServicesArn: !GetAtt LambdaFunctions.Outputs.LambdaManageServicesArn
+        LambdaCheckRdsArn: !GetAtt LambdaFunctions.Outputs.LambdaCheckRdsArn

@@ -133,7 +133,6 @@ def handler(event, context):
     manager = AWSManager()
     # get the action from the event
     action = event["action"]
-    
     if action == "start":
         aws_resource = event["resource"]
         if aws_resource == "rds":
@@ -144,7 +143,6 @@ def handler(event, context):
             logger.info("Starting ECS tasks")
             manager.ecs_change_desired_tasks(desired_count=1)
             return {"statusCode": 200, "body": "Desired number of ECS tasks set to 1"}
-        
     elif action == "stop":
         logger.info("Stopping all AWS resources")
         manager.stop_ec2_instances()

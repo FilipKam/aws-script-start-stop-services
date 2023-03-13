@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: "2010-09-09"
+
+Description: "Lambda functions to start and stop AWS services."
+
+Metadata:
+  Author: FilipKamenar
+
+Parameters:
+  NamePrefix:
+    Type: String
+  Environment:
+    Type: String
+  S3Bucket:
+    Type: String
+  S3KeyLambdaManageServicesSourceCode:
+    Type: String
+  S3KeyLambdaCheckRdsSourceCode:
+    Type: String
+
+Resources: 
+  IAMRoleLambdaManageServices:
+      Type: "AWS::IAM::Role"
+      Properties:
+        RoleName: !Sub ${NamePrefix}-${Environment}-lambda-manage-services-role
+        AssumeRolePolicyDocument:
+          Version: 2012-10-17
+          Statement:
+            - Action:
+                - sts:AssumeRole
+              Effect: Allow
+              Principal:
+                Service:
+                  - lambda.amazonaws.com
+        Policies:
+          - PolicyName: "lambda-permissions-ec2"
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "ec2:StartInstances"
+                    - "ec2:StopInstances"
+                    - "ec2:DescribeInstances"
+                  Resource: "*"
+          - PolicyName: "lambda-permissions-rds"
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "rds:StartDBInstance"
+                    - "rds:StopDBInstance"
+                    - "rds:DescribeDBInstances"
+                  Resource: "*"
+          - PolicyName: "lambda-permissions-ecs"
+            PolicyDocument:
+              Version: 2012-10-17
+              Statement:
+                - Effect: Allow
+                  Action:
+                    - "ecs:ListClusters"
+                    - "ecs:ListServices"
+                    - "ecs:DescribeClusters"
+                    - "ecs:UpdateService"
+                  Resource: "*"
+        ManagedPolicyArns:
+          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        Path: /      
+
+  LambdaManageServices:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub ${NamePrefix}-${Environment}-lambda-manage-services
+      Description: "Automatically start and stop AWS services. Trigger using EventBridge cron expression."
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3KeyLambdaManageServicesSourceCode
+      Handler: "app.handler"
+      Role: !GetAtt IAMRoleLambdaManageServices.Arn
+      Timeout: 30
+
+  IAMRoleLambdaCheckRds:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${NamePrefix}-${Environment}-lambda-check-rds-status-role
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      Policies:
+        - PolicyName: "lambda-permissions-rds"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "rds:DescribeDBInstances"
+                Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /  
+
+  LambdaCheckRds:
+    Type: "AWS::Lambda::Function"
+    Properties:
+      FunctionName: !Sub ${NamePrefix}-${Environment}-lambda-check-rds-status
+      Description: "Check RDS status."
+      Runtime: "python3.9"
+      Code:
+        S3Bucket: !Ref S3Bucket
+        S3Key: !Ref S3KeyLambdaCheckRdsSourceCode
+      Handler: "app.handler"
+      Role: !GetAtt IAMRoleLambdaCheckRds.Arn
+      Timeout: 30
+
+Outputs:
+  LambdaManageServicesArn:
+    Description: "Function ARN of LambdaManageServices."
+    Value: !GetAtt LambdaManageServices.Arn
+  LambdaCheckRdsArn:
+    Description: "Function ARN of LambdaCheckRds."
+    Value: !GetAtt LambdaCheckRds.Arn
