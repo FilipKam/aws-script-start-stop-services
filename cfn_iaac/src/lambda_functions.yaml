@@ -17,60 +17,69 @@ Parameters:
   S3KeyLambdaCheckRdsSourceCode:
     Type: String
 
-Resources: 
+Resources:
   IAMRoleLambdaManageServices:
-      Type: "AWS::IAM::Role"
-      Properties:
-        RoleName: !Sub ${NamePrefix}-${Environment}-lambda-manage-services-role
-        AssumeRolePolicyDocument:
-          Version: 2012-10-17
-          Statement:
-            - Action:
-                - sts:AssumeRole
-              Effect: Allow
-              Principal:
-                Service:
-                  - lambda.amazonaws.com
-        Policies:
-          - PolicyName: "lambda-permissions-ec2"
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - "ec2:StartInstances"
-                    - "ec2:StopInstances"
-                    - "ec2:DescribeInstances"
-                  Resource: "*"
-          - PolicyName: "lambda-permissions-rds"
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - "rds:StartDBInstance"
-                    - "rds:StopDBInstance"
-                    - "rds:DescribeDBInstances"
-                  Resource: "*"
-          - PolicyName: "lambda-permissions-ecs"
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - "ecs:ListClusters"
-                    - "ecs:ListServices"
-                    - "ecs:DescribeClusters"
-                    - "ecs:UpdateService"
-                  Resource: "*"
-        ManagedPolicyArns:
-          - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-        Path: /      
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${NamePrefix}-lambda-manage-services-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - lambda.amazonaws.com
+      Policies:
+        - PolicyName: "lambda-permissions-ec2"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ec2:StartInstances"
+                  - "ec2:StopInstances"
+                  - "ec2:DescribeInstances"
+                Resource: "*"
+        - PolicyName: "lambda-permissions-rds"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "rds:StartDBInstance"
+                  - "rds:StopDBInstance"
+                  - "rds:DescribeDBInstances"
+                Resource: "*"
+        - PolicyName: "lambda-permissions-ecs"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "ecs:ListClusters"
+                  - "ecs:ListServices"
+                  - "ecs:DescribeClusters"
+                  - "ecs:UpdateService"
+                Resource: "*"
+        - PolicyName: "lambda-permissions-asg"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "autoscaling:DescribeAutoScalingGroups"
+                  - "autoscaling:UpdateAutoScalingGroup"
+                Resource: "*"
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Path: /
 
   LambdaManageServices:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Sub ${NamePrefix}-${Environment}-lambda-manage-services
+      FunctionName: !Sub ${NamePrefix}-lambda-manage-services-${Environment}
       Description: "Automatically start and stop AWS services. Trigger using EventBridge cron expression."
       Runtime: "python3.9"
       Code:
@@ -83,7 +92,7 @@ Resources:
   IAMRoleLambdaCheckRds:
     Type: "AWS::IAM::Role"
     Properties:
-      RoleName: !Sub ${NamePrefix}-${Environment}-lambda-check-rds-status-role
+      RoleName: !Sub ${NamePrefix}-lambda-check-rds-status-role-${Environment}
       AssumeRolePolicyDocument:
         Version: 2012-10-17
         Statement:
@@ -104,12 +113,12 @@ Resources:
                 Resource: "*"
       ManagedPolicyArns:
         - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
-      Path: /  
+      Path: /
 
   LambdaCheckRds:
     Type: "AWS::Lambda::Function"
     Properties:
-      FunctionName: !Sub ${NamePrefix}-${Environment}-lambda-check-rds-status
+      FunctionName: !Sub ${NamePrefix}-lambda-check-rds-status-${Environment}
       Description: "Check RDS status."
       Runtime: "python3.9"
       Code:

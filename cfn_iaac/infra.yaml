@@ -6,22 +6,24 @@ Metadata:
   Author: FilipKamenar
   AWS::CloudFormation::Interface:
     ParameterGroups:
-      -
-        Label:
+      - Label:
           default: "Application basic information"
         Parameters:
           - NamePrefix
           - Environment
-      -
-        Label:
+      - Label:
+          default: "Step functions scheduler parameters"
+        Parameters:
+          - StartCronExpression
+          - StopCronExpression
+      - Label:
           default: "Lambda functions nested stack"
         Parameters:
           - S3Bucket
           - S3KeyLambdaManageServicesSourceCode
           - S3KeyLambdaCheckRdsSourceCode
           - LambdaFunctionsTemplateUrl
-      -
-        Label:
+      - Label:
           default: "Step functions nested stack"
         Parameters:
           - StepFunctionsTemplateUrl
@@ -38,6 +40,14 @@ Parameters:
       - tfx1
       - preprod
       - prod
+  StartCronExpression:
+    Type: String
+    Description: "Cron expression for start services scheduler. Example: cron(0 8 ? * MON,TUE,WED,THU,FRI *)"
+    Default: "cron(0 8 ? * MON,TUE,WED,THU,FRI *)"
+  StopCronExpression:
+    Type: String
+    Description: "Cron expression for stop services scheduler. Example: cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
+    Default: "cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
   S3Bucket:
     Type: String
     Description: "S3 bucket where the source code of Lambda functions is stored."
@@ -54,7 +64,7 @@ Parameters:
     Type: String
     Description: Object URL of CFN template step_functions.yaml in S3 CodeSourceBucket.
 
-Resources: 
+Resources:
   LambdaFunctions:
     Type: "AWS::CloudFormation::Stack"
     Properties:
@@ -75,3 +85,5 @@ Resources:
         Environment: !Ref Environment
         LambdaManageServicesArn: !GetAtt LambdaFunctions.Outputs.LambdaManageServicesArn
         LambdaCheckRdsArn: !GetAtt LambdaFunctions.Outputs.LambdaCheckRdsArn
+        StartCronExpression: !Ref StartCronExpression
+        StopCronExpression: !Ref StopCronExpression

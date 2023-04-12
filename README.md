@@ -1,6 +1,15 @@
-# ABOUT
+# START AND STOP AWS RESOURCES SCRIPT
+
+## DESCRIPTION
 
 This tool set is used to automatically start and stop AWS resources. It is designed to be used in AWS Lambda function. Automation is done using Step Functions. RDS, EC2 and ECS resources will be started and stopped.
+
+### SUPPORTED AWS RESOURCES
+
+- RDS - Relational Database Service
+- ASG - Auto Scaling Group
+- ECS - Elastic Container Service
+- EC2 - Elastic Compute Cloud
 
 ## DEPLOYMENT
 
@@ -39,7 +48,15 @@ This tool set is used to automatically start and stop AWS resources. It is desig
 - Verify that all resources are created
 - Resources will be now automatically started and stopped according to schedule specified in EventBridge Schedule
 
-## MANUAL USAGE OF MANAGE SERVICES LAMBDA FUNCTION
+## USAGE
+
+### STEP FUNCTIONS
+
+- step_functions.yaml contains Step Functions definition
+- it is used to control start and stop of resources according to schedule specified in EventBridge Schedule
+- Schedule can be changed using cron expression which is specified in the infra.yaml file as a parameter
+
+### MANUAL USAGE OF MANAGE SERVICES LAMBDA FUNCTION
 
 - Create lambda function manually or deploy whole solution with CloudFormation (description above)
 - Lambda must have permissions to start, stop, list and describe (check IAM role described in lambda_functions.yaml):
@@ -47,18 +64,24 @@ This tool set is used to automatically start and stop AWS resources. It is desig
   - ECS
   - RDS
 - Lambda can be controlled using testing lambda event input JSON
-  - Start RDS: ```{"action": "start", "resource": "rds"}```
-  - Start ECS: ```{"action": "start", "resource": "ecs"}```
+  - Start single resource: ```{ "action": "start", "resources": [ "ecs" ] }```
+  - Start all resources: ```{ "action": "start", "resources": [ "ecs", "rds", "asg", "ec2" ] }```
   - Stop all: ```{"action": "stop"}```
 
-## LOCAL USAGE OF MANAGE SERVICES SCRIPT
+### LOCAL USAGE OF MANAGE SERVICES SCRIPT
 
-### START RESOURCES
+#### START RESOURCES
 
-```python3 app.py -a start -r rds```
+Multiple resources at once using comma separated list without space after comma.
 
-```python3 app.py -a start -r ecs```
+- ```python3 app.py -a start -r rds,asg```
 
-### STOP RESOURCES
+Only one resource at once using single resource name.
+
+- ```python3 app.py -a start -r ecs```
+
+#### STOP RESOURCES
+
+Stop all resources always.
 
 ```python3 app.py -a stop```

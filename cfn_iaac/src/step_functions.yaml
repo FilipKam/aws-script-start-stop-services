@@ -14,172 +14,184 @@ Parameters:
     Type: String
   LambdaCheckRdsArn:
     Type: String
+  StartCronExpression:
+    Type: String
+  StopCronExpression:
+    Type: String
 
-Resources: 
+Resources:
   StartStopServicesStateMachineRole:
-      Type: "AWS::IAM::Role"
-      Properties:
-        RoleName: !Sub ${NamePrefix}-${Environment}-start-stop-state-machine-role
-        AssumeRolePolicyDocument:
-          Version: "2012-10-17"
-          Statement:
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${NamePrefix}-start-stop-services-state-machine-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
           - Effect: "Allow"
             Principal:
               Service:
-              - "states.amazonaws.com"
+                - "states.amazonaws.com"
             Action:
-            - "sts:AssumeRole"
-        Path: "/"
-        Policies:
+              - "sts:AssumeRole"
+      Path: "/"
+      Policies:
         - PolicyName: "StatesExecutionPolicy"
           PolicyDocument:
             Version: "2012-10-17"
             Statement:
-            - Effect: "Allow"
-              Action:
-              - "lambda:InvokeFunction"
-              - "lambda:InvokeAsync"
-              Resource:
-              - !Ref LambdaManageServicesArn
-              - !Ref LambdaCheckRdsArn
+              - Effect: "Allow"
+                Action:
+                  - "lambda:InvokeFunction"
+                  - "lambda:InvokeAsync"
+                Resource:
+                  - !Ref LambdaManageServicesArn
+                  - !Ref LambdaCheckRdsArn
 
   StartServicesStateMachine:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
-      StateMachineName: !Sub ${NamePrefix}-${Environment}-start-services-state-machine
-      DefinitionString:
-        !Sub |
-          {
-            "StartAt": "StartRDSDatabases",
-            "States": {
-              "StartRDSDatabases": {
-                "Type": "Task",
-                "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {
-                  "FunctionName": "${LambdaManageServicesArn}",
-                  "Payload": {
-                    "action": "start",
-                    "resource": "rds"
-                  }
-                },
-                "Next": "WaitForRDSDatabase"
+      StateMachineName: !Sub ${NamePrefix}-start-services-${Environment}
+      DefinitionString: !Sub |
+        {
+          "StartAt": "StartRDSDatabases",
+          "States": {
+            "StartRDSDatabases": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${LambdaManageServicesArn}",
+                "Payload": {
+                  "action": "start",
+                  "resource": "rds"
+                }
               },
-              "WaitForRDSDatabase": {
-                "Type": "Wait",
-                "Seconds": 30,
-                "Next": "CheckRDSDatabaseStatus"
+              "Next": "WaitForRDSDatabase"
+            },
+            "WaitForRDSDatabase": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "CheckRDSDatabaseStatus"
+            },
+            "CheckRDSDatabaseStatus": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${LambdaCheckRdsArn}"
               },
-              "CheckRDSDatabaseStatus": {
-                "Type": "Task",
-                "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {
-                  "FunctionName": "${LambdaCheckRdsArn}"
-                },
-                "OutputPath":"$.Payload",
-                "Next": "ValidateStatusRDS"
+              "OutputPath":"$.Payload",
+              "Next": "ValidateStatusRDS"
+            },
+            "ValidateStatusRDS": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$",
+                  "StringEquals": "available",
+                  "Next": "StartECSTask"
+                }
+              ],
+              "Default": "WaitForRDSDatabase"
+            },
+            "StartECSTask": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${LambdaManageServicesArn}",
+                "Payload": {
+                  "action": "start",
+                  "resource": "ecs"
+                }
               },
-              "ValidateStatusRDS": {
-                "Type": "Choice",
-                "Choices": [
-                  {
-                    "Variable": "$",
-                    "StringEquals": "available",
-                    "Next": "StartECSTask"
-                  }
-                ],
-                "Default": "WaitForRDSDatabase"
+              "Next": "StartASG"
+            },
+            "StartASG": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${LambdaManageServicesArn}",
+                "Payload": {
+                  "action": "start",
+                  "resource": "asg"
+                }
               },
-              "StartECSTask": {
-                "Type": "Task",
-                "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {
-                  "FunctionName": "${LambdaManageServicesArn}",
-                  "Payload": {
-                    "action": "start",
-                    "resource": "ecs"
-                  }
-                },
-                "End": true
-              }
+              "End": true
             }
           }
+        }
       RoleArn: !GetAtt StartStopServicesStateMachineRole.Arn
 
   StopServicesStateMachine:
     Type: "AWS::StepFunctions::StateMachine"
     Properties:
-      StateMachineName: !Sub ${NamePrefix}-${Environment}-stop-services-state-machine
-      DefinitionString:
-        !Sub |
-          {
-            "StartAt": "StopEcsRdsEc2",
-            "States": {
-              "StopEcsRdsEc2": {
-                "Type": "Task",
-                "Resource": "arn:aws:states:::lambda:invoke",
-                "Parameters": {
-                  "FunctionName": "${LambdaManageServicesArn}",
-                  "Payload": {
-                    "action": "stop"
-                  }
-                },
-                "End": true
-              }
+      StateMachineName: !Sub ${NamePrefix}-stop-services-${Environment}
+      DefinitionString: !Sub |
+        {
+          "StartAt": "StopEcsRdsEc2",
+          "States": {
+            "StopEcsRdsEc2": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${LambdaManageServicesArn}",
+                "Payload": {
+                  "action": "stop"
+                }
+              },
+              "End": true
             }
           }
+        }
       RoleArn: !GetAtt StartStopServicesStateMachineRole.Arn
 
   IAMRoleScheduler:
-      Type: "AWS::IAM::Role"
-      Properties:
-        RoleName: !Sub ${NamePrefix}-${Environment}-stop-state-machine-scheduler-role
-        AssumeRolePolicyDocument:
-          Version: 2012-10-17
-          Statement:
-            - Action:
-                - sts:AssumeRole
-              Effect: Allow
-              Principal:
-                Service:
-                  - scheduler.amazonaws.com
-        Policies:
-          - PolicyName: "scheduler-permissions-step-functions"
-            PolicyDocument:
-              Version: 2012-10-17
-              Statement:
-                - Effect: Allow
-                  Action:
-                    - "states:StartExecution"
-                  Resource:
-                    - !GetAtt StopServicesStateMachine.Arn
-                    - !GetAtt StartServicesStateMachine.Arn
-  
-  EventBridgeSchedulerStart:
-      Type: "AWS::Scheduler::Schedule"
-      Properties:
-        Name: !Sub ${NamePrefix}-${Environment}-start-state-machine-schedule
-        Description: "Start services schedule"
-        ScheduleExpression: "cron(0 8 ? * MON,TUE,WED,THU,FRI *)"
-        ScheduleExpressionTimezone: "Europe/Prague"
-        State: "ENABLED"
-        FlexibleTimeWindow:
-          Mode: "OFF"
-        Target:
-          Arn: !GetAtt StartServicesStateMachine.Arn
-          RoleArn: !GetAtt IAMRoleScheduler.Arn
-  
-  EventBridgeSchedulerStop:
-      Type: "AWS::Scheduler::Schedule"
-      Properties:
-        Name: !Sub ${NamePrefix}-${Environment}-stop-state-machine-schedule
-        Description: "Stop services schedule"
-        ScheduleExpression: "cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
-        ScheduleExpressionTimezone: "Europe/Prague"
-        State: "ENABLED"
-        FlexibleTimeWindow:
-          Mode: "OFF"
-        Target:
-          Arn: !GetAtt StopServicesStateMachine.Arn
-          RoleArn: !GetAtt IAMRoleScheduler.Arn
+    Type: "AWS::IAM::Role"
+    Properties:
+      RoleName: !Sub ${NamePrefix}-start-stop-services-scheduler-role-${Environment}
+      AssumeRolePolicyDocument:
+        Version: 2012-10-17
+        Statement:
+          - Action:
+              - sts:AssumeRole
+            Effect: Allow
+            Principal:
+              Service:
+                - scheduler.amazonaws.com
+      Policies:
+        - PolicyName: "scheduler-permissions-step-functions"
+          PolicyDocument:
+            Version: 2012-10-17
+            Statement:
+              - Effect: Allow
+                Action:
+                  - "states:StartExecution"
+                Resource:
+                  - !GetAtt StopServicesStateMachine.Arn
+                  - !GetAtt StartServicesStateMachine.Arn
 
-    
+  EventBridgeSchedulerStart:
+    Type: "AWS::Scheduler::Schedule"
+    Properties:
+      Name: !Sub ${NamePrefix}-start-state-machine-schedule-${Environment}
+      Description: "Start services schedule"
+      ScheduleExpression: !Ref StartCronExpression
+      ScheduleExpressionTimezone: "Europe/Prague"
+      State: "ENABLED"
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt StartServicesStateMachine.Arn
+        RoleArn: !GetAtt IAMRoleScheduler.Arn
+
+  EventBridgeSchedulerStop:
+    Type: "AWS::Scheduler::Schedule"
+    Properties:
+      Name: !Sub ${NamePrefix}-stop-state-machine-schedule-${Environment}
+      Description: "Stop services schedule"
+      ScheduleExpression: !Ref StopCronExpression
+      ScheduleExpressionTimezone: "Europe/Prague"
+      State: "ENABLED"
+      FlexibleTimeWindow:
+        Mode: "OFF"
+      Target:
+        Arn: !GetAtt StopServicesStateMachine.Arn
+        RoleArn: !GetAtt IAMRoleScheduler.Arn
