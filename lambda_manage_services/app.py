@@ -70,6 +70,7 @@ if __name__ == "__main__":
         action=CommaSeparatedListAction,
     )
     args = parser.parse_args()
-    event = {"action": args.action, "resources": args.resource}
+    event = {"action": args.action, "resources": args.resources}
 
     handler(event, None)
+
