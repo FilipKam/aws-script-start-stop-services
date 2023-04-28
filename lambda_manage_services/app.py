@@ -29,12 +29,12 @@ def handler(event, context):
             elif resource == "ecs":
                 desired_count = event.get("config", {}).get("ecs", {}).get("desired_count") or 1
                 logger.info(f"Setting up ECS tasks to {desired_count}")
-                aws_manager.ecs_change_desired_tasks(desired_count=desired_count)
+                aws_manager.ecs_change_desired_tasks(desired_count=int(desired_count))
                 response_body.append(f"Desired number of ECS tasks set to {desired_count}")
             elif resource == "asg":
                 desired_count = event.get("config", {}).get("asg", {}).get("desired_count") or 1
                 logger.info(f"Setting up ASG instances to {desired_count}")
-                aws_manager.ec2_asg_desired_capacity(desired_count=desired_count)
+                aws_manager.ec2_asg_desired_capacity(desired_count=int(desired_count))
                 response_body.append(f"Desired number of ASG instances set to {desired_count}")
             else:
                 logger.warning(f"Unsupported resource {resource}")
