@@ -18,6 +18,10 @@ Parameters:
     Type: String
   StopCronExpression:
     Type: String
+  EcsTaskDesiredCount:
+    Type: Number
+  AutoScalingDesiredCapacity:
+    Type: Number
 
 Resources:
   StartStopServicesStateMachineRole:
@@ -62,7 +66,7 @@ Resources:
                 "FunctionName": "${LambdaManageServicesArn}",
                 "Payload": {
                   "action": "start",
-                  "resource": "rds"
+                  "resources": ["rds"]
                 }
               },
               "Next": "WaitForRDSDatabase"
@@ -99,7 +103,14 @@ Resources:
                 "FunctionName": "${LambdaManageServicesArn}",
                 "Payload": {
                   "action": "start",
-                  "resource": "ecs"
+                  "resources": [
+                    "ecs"
+                  ],
+                  "config": {
+                    "ecs": {
+                      "desired_count": "${EcsTaskDesiredCount}"
+                    }
+                  }
                 }
               },
               "Next": "StartASG"
@@ -111,7 +122,12 @@ Resources:
                 "FunctionName": "${LambdaManageServicesArn}",
                 "Payload": {
                   "action": "start",
-                  "resource": "asg"
+                  "resources": ["asg"],
+                  "config": {
+                    "asg": {
+                      "desired_count": "${AutoScalingDesiredCapacity}"
+                    }
+                  }
                 }
               },
               "End": true
@@ -126,9 +142,34 @@ Resources:
       StateMachineName: !Sub ${NamePrefix}-stop-services-${Environment}
       DefinitionString: !Sub |
         {
-          "StartAt": "StopEcsRdsEc2",
+          "StartAt": "CheckRDSDatabaseStatus",
           "States": {
-            "StopEcsRdsEc2": {
+            "WaitForRDSDatabase": {
+              "Type": "Wait",
+              "Seconds": 30,
+              "Next": "CheckRDSDatabaseStatus"
+            },
+            "CheckRDSDatabaseStatus": {
+              "Type": "Task",
+              "Resource": "arn:aws:states:::lambda:invoke",
+              "Parameters": {
+                "FunctionName": "${LambdaCheckRdsArn}"
+              },
+              "OutputPath": "$.Payload",
+              "Next": "ValidateStatusRDS"
+            },
+            "ValidateStatusRDS": {
+              "Type": "Choice",
+              "Choices": [
+                {
+                  "Variable": "$",
+                  "StringEquals": "available",
+                  "Next": "StopAllResources"
+                }
+              ],
+              "Default": "WaitForRDSDatabase"
+            },
+            "StopAllResources": {
               "Type": "Task",
               "Resource": "arn:aws:states:::lambda:invoke",
               "Parameters": {

@@ -17,6 +17,11 @@ Metadata:
           - StartCronExpression
           - StopCronExpression
       - Label:
+          default: "Managed services parameters"
+        Parameters:
+          - EcsTaskDesiredCount
+          - AutoScalingDesiredCapacity
+      - Label:
           default: "Lambda functions nested stack"
         Parameters:
           - S3Bucket
@@ -48,6 +53,14 @@ Parameters:
     Type: String
     Description: "Cron expression for stop services scheduler. Example: cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
     Default: "cron(0 20 ? * MON,TUE,WED,THU,FRI *)"
+  EcsTaskDesiredCount:
+    Type: Number
+    Description: "Desired count of ECS tasks."
+    Default: "1"
+  AutoScalingDesiredCapacity:
+    Type: Number
+    Description: "Desired capacity of AutoScaling group. This used for scaling EKS nodes."
+    Default: "1"
   S3Bucket:
     Type: String
     Description: "S3 bucket where the source code of Lambda functions is stored."
@@ -87,3 +100,5 @@ Resources:
         LambdaCheckRdsArn: !GetAtt LambdaFunctions.Outputs.LambdaCheckRdsArn
         StartCronExpression: !Ref StartCronExpression
         StopCronExpression: !Ref StopCronExpression
+        EcsTaskDesiredCount: !Ref EcsTaskDesiredCount
+        AutoScalingDesiredCapacity: !Ref AutoScalingDesiredCapacity

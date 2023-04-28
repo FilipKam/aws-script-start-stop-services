@@ -9,15 +9,15 @@ logger.setLevel(logging.INFO)
 def check_rds_instance_statuses():
     rds = boto3.client("rds")
     instances = rds.describe_db_instances()["DBInstances"]
-    all_available = True
+    all_available = False
     for instance in instances:
         try:
             db_instance_status = instance["DBInstanceStatus"]
             logger.info(
                 f"Instance {instance['DBInstanceIdentifier']} is {db_instance_status}"
             )
-            if db_instance_status != "available":
-                all_available = False
+            if db_instance_status == "available" or db_instance_status == "stopped":
+                all_available = True
                 break
         except Exception as e:
             logger.error(
@@ -32,4 +32,5 @@ def handler(event, context):
         status = "available"
     else:
         status = "not available"
+    logger.info(f"RDS instances are {status}")
     return status
