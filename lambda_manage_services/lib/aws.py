@@ -72,7 +72,6 @@ class AWSManager:
             response = self.rds_client.describe_db_instances()
             if response["DBInstances"]:
                 for db_instance in response["DBInstances"]:
-                    print(db_instance)
                     db_instance_id = db_instance["DBInstanceIdentifier"]
                     try:
                         self.rds_client.stop_db_instance(
