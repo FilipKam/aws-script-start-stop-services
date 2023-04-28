@@ -1,6 +1,2 @@
-Here's a default .gitignore file that you can use for a Python project:
-
-markdown
-Copy code
 # Byte-compiled / optimized / DLL files
 __pycache__/

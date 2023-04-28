@@ -1,7 +1,6 @@
 import logging
 from lib.aws import AWSManager
 
-
 def handler(event, context):
     """
     Main function that is executed when the script is triggered
@@ -28,13 +27,15 @@ def handler(event, context):
                 aws_manager.start_rds_db()
                 response_body.append("All RDS instances started")
             elif resource == "ecs":
-                logger.info("Setting up ECS tasks to 1")
-                aws_manager.ecs_change_desired_tasks(desired_count=1)
-                response_body.append("Desired number of ECS tasks set to 1")
+                desired_count = event.get("config", {}).get("ecs", {}).get("desired_count") or 1
+                logger.info(f"Setting up ECS tasks to {desired_count}")
+                aws_manager.ecs_change_desired_tasks(desired_count=desired_count)
+                response_body.append(f"Desired number of ECS tasks set to {desired_count}")
             elif resource == "asg":
-                logger.info("Setting up ASG instances to 1")
-                aws_manager.ec2_asg_desired_capacity(desired_count=1)
-                response_body.append("Desired number of ASG instances set to 1")
+                desired_count = event.get("config", {}).get("asg", {}).get("desired_count") or 1
+                logger.info(f"Setting up ASG instances to {desired_count}")
+                aws_manager.ec2_asg_desired_capacity(desired_count=desired_count)
+                response_body.append(f"Desired number of ASG instances set to {desired_count}")
             else:
                 logger.warning(f"Unsupported resource {resource}")
 
@@ -69,8 +70,19 @@ if __name__ == "__main__":
         type=str,
         action=CommaSeparatedListAction,
     )
+    parser.add_argument("-asgc", "--asg_count", help="ASG desired count", type=int)
+    parser.add_argument("-ecsc", "--ecs_count", help="ECS desired count", type=int)
     args = parser.parse_args()
-    event = {"action": args.action, "resources": args.resources}
-
+    event = {
+        "action": args.action,
+        "resources": args.resources,
+        "config": {
+            "asg": {
+                "desired_count": args.asg_count
+            },
+            "ecs": {
+                "desired_count": args.ecs_count
+            }
+        },
+    }
     handler(event, None)
-

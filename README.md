@@ -64,21 +64,47 @@ This tool set is used to automatically start and stop AWS resources. It is desig
   - ECS
   - RDS
 - Lambda can be controlled using testing lambda event input JSON
-  - Start single resource: ```{ "action": "start", "resources": [ "ecs" ] }```
-  - Start all resources: ```{ "action": "start", "resources": [ "ecs", "rds", "asg", "ec2" ] }```
-  - Stop all: ```{"action": "stop"}```
+  - Start single resource:
+    - ```{ "action": "start", "resources": [ "ecs" ] }```
+  - Start all resources:
+    - ```{ "action": "start", "resources": [ "ecs", "rds", "asg", "ec2" ] }```
+  - Start all resources with specified ASG count:
+    - ```{"action": "start", "resources": ["rds"], "config": {"asg": {"desired_count": 2}}}```
+  - Start all resources with specified ECS count:
+    - ```{"action": "start", "resources": ["ecs"], "config": {"ecs": {"desired_count": 2}}}```
+  - Stop all:
+    - ```{"action": "stop"}```
 
 ### LOCAL USAGE OF MANAGE SERVICES SCRIPT
+
+**Arguments**:
+
+- -a, --action
+  - start
+  - stop
+- -r, --resources
+  - ecs
+  - rds
+  - asg
+  - ec2
+- -asgc, --asg_count
+  - Number of instances to start or stop
+  - Default value is 1
+  - only valid for starting ASG resource
+- -ecsc, --ecs_count
+  - Number of tasks to start or stop
+  - Default value is 1
+  - only valid for starting ECS resource
 
 #### START RESOURCES
 
 Multiple resources at once using comma separated list without space after comma.
 
-- ```python3 app.py -a start -r rds,asg```
+- ```python3 app.py -a start -r rds,asg -asgc 2```
 
 Only one resource at once using single resource name.
 
-- ```python3 app.py -a start -r ecs```
+- ```python3 app.py -a start -r asg -asgc 2```
 
 #### STOP RESOURCES
 
