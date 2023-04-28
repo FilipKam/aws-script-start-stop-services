@@ -69,12 +69,12 @@ Resources:
                   "resources": ["rds"]
                 }
               },
-              "Next": "WaitForRDSDatabase"
+              "Next": "CheckRDSDatabaseStatus"
             },
             "WaitForRDSDatabase": {
               "Type": "Wait",
               "Seconds": 30,
-              "Next": "CheckRDSDatabaseStatus"
+              "Next": "StartRDSDatabases"
             },
             "CheckRDSDatabaseStatus": {
               "Type": "Task",
