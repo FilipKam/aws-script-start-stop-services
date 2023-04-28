@@ -69,7 +69,7 @@ This tool set is used to automatically start and stop AWS resources. It is desig
   - Start all resources:
     - ```{ "action": "start", "resources": [ "ecs", "rds", "asg", "ec2" ] }```
   - Start all resources with specified ASG count:
-    - ```{"action": "start", "resources": ["rds"], "config": {"asg": {"desired_count": 2}}}```
+    - ```{"action": "start", "resources": ["asg"], "config": {"asg": {"desired_count": 2}}}```
   - Start all resources with specified ECS count:
     - ```{"action": "start", "resources": ["ecs"], "config": {"ecs": {"desired_count": 2}}}```
   - Stop all:
